@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import StarRating from "./StarRating";
 import { useMovies } from "./useMovies";
 import { useLocalStorageState } from "./useLocalStorageState";
-import { useKey } from "./useKey";
 
 // API = 20bb3e7b
 // http://www.omdbapi.com/?apikey=[yourkey]&
@@ -18,11 +17,11 @@ export default function App() {
 
   const { movies, isLoading, error } = useMovies(query);
 
-  const [watched, setWatched] = useLocalStorageState([]);
-  // const [watched, setWatched] = useState(() => {
-  //   const storedValue = localStorage.getItem("watched");
-  //   return storedValue ? JSON.parse(storedValue) : [];
-  // });
+  useLocalStorageState();
+  const [watched, setWatched] = useState(() => {
+    const storedValue = localStorage.getItem("watched");
+    return storedValue ? JSON.parse(storedValue) : [];
+  });
 
   function handleSelectMovie(id) {
     setSelectedId((selectedId) => (id === selectedId ? null : id));
@@ -38,6 +37,13 @@ export default function App() {
   function handleDeleteWatched(id) {
     setWatched((watched) => watched.filter((movie) => movie.imdbID !== id));
   }
+
+  useEffect(
+    function () {
+      localStorage.setItem("watched", JSON.stringify(watched));
+    },
+    [watched]
+  );
 
   return (
     <div>
@@ -116,12 +122,21 @@ function NumResults({ movies }) {
 function Search({ query, setQuery }) {
   const inputEl = useRef(null);
 
-  useKey("Enter", function () {
-    if (document.activeElement === inputEl.current) return;
-    inputEl.current.focus();
-    setQuery("");
-  });
-
+  // ENTER KEY FOCUS // SMALL FEATURE
+  useEffect(
+    function () {
+      function callback(e) {
+        if (document.activeElement === inputEl.current) return;
+        if (e.code === "Enter") {
+          inputEl.current.focus();
+          setQuery("");
+        }
+      }
+      document.addEventListener("keydown", callback);
+      return () => document.addEventListener("keydown", callback);
+    },
+    [setQuery]
+  );
   // ENTER KEY FOCUS // SMALL FEATURE
 
   return (
@@ -231,6 +246,22 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
   //PRESSING THE ESCAPE KEY
   useEffect(
     function () {
+      function callback(e) {
+        if (e.code === "Escape") {
+          onCloseMovie();
+        }
+      }
+      document.addEventListener("keydown", callback);
+
+      return function () {
+        document.removeEventListener("keydown", callback);
+      };
+    },
+    [onCloseMovie]
+  );
+
+  useEffect(
+    function () {
       async function getMovieDetails() {
         setIsLoading(true);
         const res = await fetch(
@@ -244,8 +275,6 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
     },
     [selectedId]
   );
-
-  useKey("Escape", onCloseMovie);
 
   useEffect(
     function () {
